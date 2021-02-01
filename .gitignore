@@ -35,3 +35,7 @@ lerna-debug.log*
 
 # Git Config
 .gitconfig
+src/app.module.ts
+
+# Env
+.env
