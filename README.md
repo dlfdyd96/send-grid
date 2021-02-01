@@ -116,7 +116,62 @@ NestJS 모듈은 1) 정적 모듈과 2) 동적 모듈 두 가지로 분류됩니
   export class AppModule {}
   ```
 
-#### 5.Generate Module
-- 
-#### 6.Make Dynamic Moudle
+#### 5. Make Dynamic Module
+다음으로 Dynamic Module을 만들어 봅시다.
+- Module을 만들기 전에, Mail Module을 Dynamic하게 만들어 주게해 줄 Module Option을 정의해봅시다. ([Custom Provider](https://docs.nestjs.com/fundamentals/custom-providers)는 시간이 되면 리뷰를 하겠습니다.)
+  ```ts
+  // src/common/common.constants.ts
+
+  export const CONFIG_OPTIONS = 'CONFIG_OPTIONS';
+  ```
+  `CONFIG_OPTIONS`변수는 목적(모듈 설정 옵션이라는..)을 상술하기 위한 DI 토큰으로 쓰기위해 상수로 정의하였습니다.
+
+
+  ```ts
+  // src/mail/mail.interface.ts
+
+  export interface MailModuleOptions {
+    apiKey: string; // 네이버 클라우드 플랫폼 포털에서 발급받은 Access Key ID 값
+    secret: string; // Access Key ID 값 과 Secret Key 로 암호화한 서명
+    senderAddress: string; // 발송자 Email 주소. 임의의 도메인 주소 사용하셔도 됩니다만, 가능하면 발신자 소유의 도메인 Email 계정을 사용하실 것을 권고드립니다.
+    language: string; // API 응답 값의 다국어 처리를 위한 값. (입력 값 예시: ko-KR, en-US, zh-CN, 기본 값:en-US)
+  }
+  ```
+  `MailModuleOptions` 인터페이스를 만들어 사용할 옵션의 틀을 만들어줍니다.
+
+- MailModule
+  ```ts
+  // src/mail/mail.module.ts
+
+  import { DynamicModule, Module } from '@nestjs/common';
+  import { CONFIG_OPTIONS } from 'src/common/common.constants';
+  import { MailModuleOptions } from './mail.interface';
+
+  @Module({})
+  export class MailModule {
+    static forRoot(options: MailModuleOptions): DynamicModule {
+      return {
+        module: MailModule,
+        providers: [
+          {
+            provide: CONFIG_OPTIONS,
+            useValue: options,
+          },
+        ],
+        exports: [],
+      };
+    }
+  }
+  ```
+
+  드디어 대망의 `MailModule` 입니다. 
+  1. MailModule을 Dynamic Module로 만들어 주기 위해 `DynamicModule` static method 인 `forRoot`를 정의 해줍니다.
+  
+  2. `forRoot`에 옵션을 주기위해 `options`를 매개변수로 주고,
+
+  3. DynamicModule을 return 해주는데, `providers`를 유심히 살펴봅시다.
+
+  4. 옵션 값(`options`)을 Depedency Inject하기 위해 `CONFIG_OPTIONS`을 `provide`에 DI token 값으로 주고, 매개변수 `options`를 useValue에 주면 Dynamic Module를 정의할 수 있습니다.
+
+#### 6. Mail Send
 #### 7.Test
