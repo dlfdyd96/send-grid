@@ -126,7 +126,6 @@ NestJS 모듈은 1) 정적 모듈과 2) 동적 모듈 두 가지로 분류됩니
   ```
   `CONFIG_OPTIONS`변수는 목적(모듈 설정 옵션이라는..)을 상술하기 위한 DI 토큰으로 쓰기위해 상수로 정의하였습니다.
 
-
   ```ts
   // src/mail/mail.interface.ts
 
@@ -138,6 +137,8 @@ NestJS 모듈은 1) 정적 모듈과 2) 동적 모듈 두 가지로 분류됩니
   }
   ```
   `MailModuleOptions` 인터페이스를 만들어 사용할 옵션의 틀을 만들어줍니다.
+
+<br>
 
 - MailModule
   ```ts
@@ -172,6 +173,20 @@ NestJS 모듈은 1) 정적 모듈과 2) 동적 모듈 두 가지로 분류됩니
   3. DynamicModule을 return 해주는데, `providers`를 유심히 살펴봅시다.
 
   4. 옵션 값(`options`)을 Depedency Inject하기 위해 `CONFIG_OPTIONS`을 `provide`에 DI token 값으로 주고, 매개변수 `options`를 useValue에 주면 Dynamic Module를 정의할 수 있습니다.
+<br>
+
+- AppModule에 DynamicModule을 import해줍시다!
+  ```ts
+  // src/app.module.ts
+    ...
+      MailModule.forRoot({
+        apiKey: process.env.ACCESS_KEY_ID,
+        secret: process.env.SECRET_KEY,
+        senderAddress: process.env.SENDER_ADDRESS,
+        language: 'ko-KR', // 한국어
+      }),
+    ...
+  ```
 
 #### 6. Mail Send
 #### 7.Test
