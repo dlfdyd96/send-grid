@@ -46,9 +46,8 @@ NestJS 모듈은 1) 정적 모듈과 2) 동적 모듈 두 가지로 분류됩니
 - [ ] Set up NestJS Mail Module
   - [ ] install package
   - [ ] Configure Enviornment Variables
-  - [ ] Generate Module
-  - [ ] Make Dynamic Moudle
-- [ ] Test
+  - [ ] Make Dynamic Module
+  - [ ] Mail Service
 
 <br>
 
@@ -188,5 +187,13 @@ NestJS 모듈은 1) 정적 모듈과 2) 동적 모듈 두 가지로 분류됩니
     ...
   ```
 
-#### 6. Mail Send
+#### 6. Make Mail Service
+- Service를 generate 해줍시다.
+  ```sh
+  $ nest generate service mail # windows는 npx nest generate service mail
+  ```
+- DTO들을 만들어 줍니다.
+  - RecipientForRequestDto
+  - SendMailRequestDto
+
 #### 7.Test
