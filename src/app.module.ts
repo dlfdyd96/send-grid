@@ -9,7 +9,7 @@ import * as Joi from 'joi';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: `.env`,
+      envFilePath: '.env',
       validationSchema: Joi.object({
         ACCESS_KEY_ID: Joi.string().required(),
         SECRET_KEY: Joi.string().required(),
