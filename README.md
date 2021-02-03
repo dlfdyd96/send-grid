@@ -47,8 +47,9 @@ NestJS 모듈은 1) 정적 모듈과 2) 동적 모듈 두 가지로 분류됩니
   - [x] install package
   - [x] Configure Enviornment Variables
   - [x] Make Dynamic Module
-  - [] Mail Service
-- [] Test
+  - [x] Mail Service
+- [x] Test
+- [x] 느낀점
 
 <br>
 
