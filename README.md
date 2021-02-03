@@ -364,7 +364,7 @@ NestJS 모듈은 1) 정적 모듈과 2) 동적 모듈 두 가지로 분류됩니
   }
   ```
 
-#### 7.Test
+#### 7. Test
 
 - AppController
 
@@ -419,3 +419,11 @@ NestJS 모듈은 1) 정적 모듈과 2) 동적 모듈 두 가지로 분류됩니
   ```
 
   ![result](./images/result.png)
+
+<br>
+
+### 8. 느낀점
+
+Dynamic Module를 적용해봄으로써 NestJS 프레임워크의 `IoC`, `DI`에 대한 이해에 도움이 많이 되었습니다. 다음번엔 `Custom Provider`를 리뷰를 해보도록 하겠습니다.
+
+Custom Provider 부분에서 Factory function과 Dependency Injection에 대한 이야기를 깊이 있게 다뤄보겠습니다.
