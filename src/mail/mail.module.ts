@@ -10,10 +10,12 @@ export class MailModule {
     return {
       module: MailModule,
       providers: [
+        // 모듈 옵션
         {
           provide: CONFIG_OPTIONS,
           useValue: options,
         },
+        // 모듈 서비스
         MailService,
       ],
       exports: [MailService],

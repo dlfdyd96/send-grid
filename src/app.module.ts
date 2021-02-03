@@ -14,7 +14,7 @@ import * as Joi from 'joi';
         ACCESS_KEY_ID: Joi.string().required(),
         SECRET_KEY: Joi.string().required(),
         SENDER_ADDRESS: Joi.string().required(),
-        MAIL_API_BASE_URL: Joi.string().required(),
+        MAIL_API_DOMAIN: Joi.string().required(),
       }),
     }),
     MailModule.forRoot({

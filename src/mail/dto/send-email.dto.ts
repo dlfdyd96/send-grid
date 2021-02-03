@@ -1,6 +1,15 @@
+import { Type } from 'class-transformer';
 import { IsOptional, IsString, ValidateNested } from 'class-validator';
 import { CommonResponseDto } from 'src/common/dto/common.dto';
-import { RecipientForRequestDto } from './recipient-for-req.dto';
+
+export class Recipients {
+  @IsString()
+  address: string;
+  @IsString()
+  name: string;
+  @IsString()
+  type: string;
+}
 
 export class SendEmailRequestDto {
   @IsString()
@@ -9,8 +18,9 @@ export class SendEmailRequestDto {
   title: string;
   @IsString()
   body: string;
-  @ValidateNested()
-  recipients: RecipientForRequestDto[];
+  @ValidateNested({ each: true })
+  @Type(() => Recipients)
+  recipients: Recipients[];
 }
 
 export class SendEmailResponseDto extends CommonResponseDto {

@@ -42,12 +42,13 @@ NestJS 모듈은 1) 정적 모듈과 2) 동적 모듈 두 가지로 분류됩니
 
 ### TODO List 📋
 
-- [ ] Naver Cloud Platform - Cloud Outbound Mailer API 발급
-- [ ] Set up NestJS Mail Module
-  - [ ] install package
-  - [ ] Configure Enviornment Variables
-  - [ ] Make Dynamic Module
-  - [ ] Mail Service
+- [x] Naver Cloud Platform - Cloud Outbound Mailer API 발급
+- [x] Set up NestJS Mail Module
+  - [x] install package
+  - [x] Configure Enviornment Variables
+  - [x] Make Dynamic Module
+  - [] Mail Service
+- [] Test
 
 <br>
 
@@ -94,6 +95,7 @@ NestJS 모듈은 1) 정적 모듈과 2) 동적 모듈 두 가지로 분류됩니
   ACCESS_KEY_ID=퍼블릭키
   SECRET_KEY=쉿!비밀키ㅎ
   SENDER_ADDRESS=1yongs_@naver.com
+  MAIL_API_DOMAIN=https://mail.apigw.ntruss.com/
   ```
 
 - `app.module.ts`에 `ConfigModule`을 `.forRoot()` static method를 통해 root로 import 해줍니다. ([공식문서](https://docs.nestjs.com/techniques/configuration#service))
@@ -115,6 +117,7 @@ NestJS 모듈은 1) 정적 모듈과 2) 동적 모듈 두 가지로 분류됩니
           ACCESS_KEY_ID: Joi.string().required(),
           SECRET_KEY: Joi.string().required(),
           SENDER_ADDRESS: Joi.string().required(),
+          MAIL_API_DOMAIN: Joi.string().required(),
         }),
       }),
     ],
@@ -210,21 +213,14 @@ NestJS 모듈은 1) 정적 모듈과 2) 동적 모듈 두 가지로 분류됩니
   $ nest generate service mail # windows는 npx nest generate service mail
   ```
 - DTO들을 만들어 줍니다.
-  메일을 발송하기 위해 Cloud Outbound Mailer API Request DTO를 만들어 줍니다.
+  메일을 발송하기 위해 Request / Response DTO를 만들어 줍니다.
 
   ```ts
-  // src/mail/dto/recipient-for-req.dto.ts
+  // src/mail/dto/send-email.dto.ts
 
-  import { IsBoolean, IsString, ValidateNested } from 'class-validator';
-
-  export class RecipientParameter {
-    @IsString()
-    customer_name: string;
-    @IsString()
-    BEFORE_GRADE: string;
-    @IsString()
-    AFTER_GRADE: string;
-  }
+  import { Type } from 'class-transformer';
+  import { IsOptional, IsString, ValidateNested } from 'class-validator';
+  import { CommonResponseDto } from 'src/common/dto/common.dto';
 
   export class Recipients {
     @IsString()
@@ -233,23 +229,27 @@ NestJS 모듈은 1) 정적 모듈과 2) 동적 모듈 두 가지로 분류됩니
     name: string;
     @IsString()
     type: string;
-    @ValidateNested()
-    parameters: RecipientParameter;
   }
 
-  export class RecipientForRequestDto {
+  export class SendEmailRequestDto {
     @IsString()
-    senderAddress: string;
+    senderName: string;
     @IsString()
     title: string;
     @IsString()
     body: string;
-    @ValidateNested()
+    @ValidateNested({ each: true })
+    @Type(() => Recipients)
     recipients: Recipients[];
-    @IsBoolean()
-    individual: boolean; // 개인발송여부 (개인발송 시 참조인, 숨은참조 무시됨)
-    @IsBoolean()
-    advertising: boolean; // 	광고메일여부
+  }
+
+  export class SendEmailResponseDto extends CommonResponseDto {
+    @IsOptional()
+    @IsString()
+    requestId?: string;
+    @IsOptional()
+    @IsString()
+    count?: number;
   }
   ```
 
@@ -269,42 +269,19 @@ NestJS 모듈은 1) 정적 모듈과 2) 동적 모듈 두 가지로 분류됩니
     @IsString()
     message?: string;
   }
-
-  // src/mail/dto/send-email.dto.ts
-  import { IsOptional, IsString, ValidateNested } from 'class-validator';
-  import { CommonResponseDto } from 'src/common/dto/common.dto';
-  import { RecipientForRequestDto } from './recipient-for-req.dto';
-
-  export class SendEmailRequestDto {
-    @IsString()
-    senderName: string;
-    @IsString()
-    title: string;
-    @IsString()
-    body: string;
-    @ValidateNested()
-    recipients: RecipientForRequestDto[];
-  }
-
-  export class SendEmailResponseDto extends CommonResponseDto {
-    @IsOptional()
-    @IsString()
-    requestId?: string;
-    @IsOptional()
-    @IsString()
-    count?: number;
-  }
   ```
 
-  저희 API 서버의 Request, Response DTO도 만들어 줍니다.
-
 - MailService
+
+  메일을 발송하는데 api url로 POST 방식으로 전송합니다. 이때 headers에는 Cloud Outbound Mailer에 기재된 내용들을 넣어주고, 필요한 Body Data를 넣어 전송합니다.
+
+  `x-ncp-apigw-signature-v2`는 Secret Key로 HmacSHA256 알고리즘으로 암호화한 후 Base64로 인코딩하여 담아 줍니다.
 
   ```ts
   import { Inject, Injectable } from '@nestjs/common';
   import axios from 'axios';
+  import { createHmac } from 'crypto';
   import { CONFIG_OPTIONS } from 'src/common/common.constants';
-  import { RecipientForRequestDto } from './dto/recipient-for-req.dto';
   import {
     SendEmailRequestDto,
     SendEmailResponseDto,
@@ -317,12 +294,14 @@ NestJS 모듈은 1) 정적 모듈과 2) 동적 모듈 두 가지로 분류됩니
       @Inject(CONFIG_OPTIONS) private readonly options: MailModuleOptions,
     ) {}
 
-    private async sendEmail(
+    async sendEmail(
       reqData: SendEmailRequestDto,
     ): Promise<SendEmailResponseDto> {
+      const url = `/api/v1/mails`;
+      const method = `POST`;
       try {
-        const response = await axios.post<{ requestId: string; count: number }>(
-          `${process.env.MAIL_API_BASE_URL}/`,
+        const { data } = await axios.post<{ requestId: string; count: number }>(
+          `${process.env.MAIL_API_DOMAIN}${url}`,
           {
             senderAddress: this.options.senderAddress,
             ...reqData,
@@ -332,31 +311,111 @@ NestJS 모듈은 1) 정적 모듈과 2) 동적 모듈 두 가지로 분류됩니
               'Content-Type': 'application/json',
               'x-ncp-apigw-timestamp': new Date().getTime().toString(10),
               'x-ncp-iam-access-key': this.options.apiKey,
-              'x-ncp-apigw-signature-v2': Buffer.from(
-                `${this.options.secret}`,
-              ).toString('base64'),
+              'x-ncp-apigw-signature-v2': this.makeSignature(
+                method,
+                url,
+                new Date().getTime().toString(),
+                this.options.apiKey,
+                this.options.secret,
+              ),
               'x-ncp-lang': this.options.language,
             },
           },
         );
+
         return {
-          ...response,
+          ...data,
           status: true,
         };
       } catch (error) {
-        console.log(error.response);
+        console.log(error);
         return {
           status: false,
           error: error.response.data,
-          message: `메일 발소에에 실패하였습니다.`,
+          message: `메일 발송에 실패하였습니다.`,
         };
       }
+    }
+
+    private makeSignature(
+      method: string,
+      url: string,
+      timestamp: string,
+      accessKey: string,
+      secretKey: string,
+    ): string {
+      const space = ' '; // 공백
+      const newLine = '\n'; // 줄바꿈
+
+      const hmac = createHmac('sha256', secretKey);
+
+      hmac.write(method);
+      hmac.write(space);
+      hmac.write(url);
+      hmac.write(newLine);
+      hmac.write(timestamp);
+      hmac.write(newLine);
+      hmac.write(accessKey);
+
+      hmac.end();
+
+      return Buffer.from(hmac.read()).toString('base64');
     }
   }
   ```
 
-  메일을 발송하는데 api url로 POST 방식으로 전송합니다. 이때 headers에는 Cloud Outbound Mailer에 기재된 내용들을 넣어주고, 필요한 Body Data를 넣어 전송합니다.
-
-  `x-ncp-apigw-signature-v2`는 Secret Key로 HmacSHA256 알고리즘으로 암호화한 후 Base64로 인코딩하여 담아 줍니다.
-
 #### 7.Test
+
+- AppController
+
+  메일 발송을 위한 endpoint를 `app.controller.ts`에 열어줍시다.
+
+  ```ts
+  // src/app.controller.ts
+
+  @Controller()
+  export class AppController {
+    constructor(private readonly mailService: MailService) {}
+
+    @Post('/mail')
+    sendToClient(
+      @Body() reqData: SendEmailRequestDto,
+    ): Promise<SendEmailResponseDto> {
+      return this.mailService.sendEmail(reqData);
+    }
+  }
+  ```
+
+- Request
+
+  ```ts
+  // request url
+  "http://localhost:3000/mail"
+
+  // post request body
+  {
+    "senderName": "황 일용",
+    "title": "안녕하세요 테스트 메일입니다.",
+    "body": "안녕하세요 Naver Cloud Platform - Cloud Outbound mailer 서비스 테스트 메일 입니다. ",
+    "recipients": [
+      {
+        "address": "iyhwang@hnmcorp.kr",
+        "name": "황일용",
+        "type": "R"
+      }
+    ]
+  }
+  ```
+
+- Response
+
+  ```ts
+  // response
+  {
+    "requestId": "20210203000054051502",
+    "count": 1,
+    "status": true
+  }
+  ```
+
+  ![result](./images/result.png)

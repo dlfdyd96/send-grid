@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import axios from 'axios';
+import { createHmac } from 'crypto';
 import { CONFIG_OPTIONS } from 'src/common/common.constants';
-import { RecipientForRequestDto } from './dto/recipient-for-req.dto';
 import {
   SendEmailRequestDto,
   SendEmailResponseDto,
@@ -14,12 +14,12 @@ export class MailService {
     @Inject(CONFIG_OPTIONS) private readonly options: MailModuleOptions,
   ) {}
 
-  private async sendEmail(
-    reqData: SendEmailRequestDto,
-  ): Promise<SendEmailResponseDto> {
+  async sendEmail(reqData: SendEmailRequestDto): Promise<SendEmailResponseDto> {
+    const url = `/api/v1/mails`;
+    const method = `POST`;
     try {
-      const response = await axios.post<{ requestId: string; count: number }>(
-        `${process.env.MAIL_API_BASE_URL}/`,
+      const { data } = await axios.post<{ requestId: string; count: number }>(
+        `${process.env.MAIL_API_DOMAIN}${url}`,
         {
           senderAddress: this.options.senderAddress,
           ...reqData,
@@ -29,24 +29,54 @@ export class MailService {
             'Content-Type': 'application/json',
             'x-ncp-apigw-timestamp': new Date().getTime().toString(10),
             'x-ncp-iam-access-key': this.options.apiKey,
-            'x-ncp-apigw-signature-v2': Buffer.from(
-              `${this.options.secret}`,
-            ).toString('base64'),
+            'x-ncp-apigw-signature-v2': this.makeSignature(
+              method,
+              url,
+              new Date().getTime().toString(),
+              this.options.apiKey,
+              this.options.secret,
+            ),
             'x-ncp-lang': this.options.language,
           },
         },
       );
+
       return {
-        ...response,
+        ...data,
         status: true,
       };
     } catch (error) {
-      console.log(error.response);
+      console.log(error);
       return {
         status: false,
         error: error.response.data,
-        message: `메일 발소에에 실패하였습니다.`,
+        message: `메일 발송에 실패하였습니다.`,
       };
     }
+  }
+
+  private makeSignature(
+    method: string,
+    url: string,
+    timestamp: string,
+    accessKey: string,
+    secretKey: string,
+  ): string {
+    const space = ' '; // 공백
+    const newLine = '\n'; // 줄바꿈
+
+    const hmac = createHmac('sha256', secretKey);
+
+    hmac.write(method);
+    hmac.write(space);
+    hmac.write(url);
+    hmac.write(newLine);
+    hmac.write(timestamp);
+    hmac.write(newLine);
+    hmac.write(accessKey);
+
+    hmac.end();
+
+    return Buffer.from(hmac.read()).toString('base64');
   }
 }
